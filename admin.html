@@ -19,7 +19,7 @@
  <h2 style="color:#0d47a1;margin-top:0">Student Record Generator</h2>
  <p class="note">Create one file per student. Update the three checkboxes later as the student completes each step, then upload the file again.</p>
  <label class="t">Student name</label><input type="text" id="name">
- <label class="t">Course</label><input type="text" id="course" value="Flutter Development Course">
+ <label class="t">Course</label><input type="text" id="course" value="3-Month Flutter Development Program">
  <label class="t">Completion date</label><input type="date" id="date">
  <label class="chk"><input type="checkbox" id="testPassed"> Final test passed</label>
  <label class="chk"><input type="checkbox" id="projectSubmitted"> Final project submitted</label>
@@ -39,7 +39,7 @@ document.getElementById("date").valueAsDate = new Date();
 function newId(){
   const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789", r=crypto.getRandomValues(new Uint8Array(8));
   const s=[...r].map(b=>a[b%a.length]).join("");
-  return "FLT-"+s.slice(0,4)+"-"+s.slice(4);
+  return "NX-"+s.slice(0,4)+"-"+s.slice(4);
 }
 function gen(){
   const g=i=>document.getElementById(i);
@@ -51,6 +51,6 @@ function gen(){
   const verifyUrl=new URL("index.html",location.href).href+"?id="+c.id;
   g("link").value=verifyUrl;
   g("out").style.display="block";
-  g("pdf").onclick=()=>makeCertificate({...c,verifyUrl}).save("Certificate-"+c.id+".pdf");
+  g("pdf").onclick=async()=>{try{(await makeCertificate({...c,verifyUrl})).save("Certificate-"+c.id+".pdf");}catch(e){alert("Could not create the PDF.");}};
 }
 </script></body></html>

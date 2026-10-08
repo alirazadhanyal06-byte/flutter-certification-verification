@@ -64,9 +64,10 @@ async function check(){
     out.innerHTML += '<p class="ok">✓ Valid certificate</p><p class="ok ur" style="font-size:18px">درست سرٹیفکیٹ</p>'
       + info + '<p>Date | تاریخ: '+esc(c.date)+'</p>'
       + '<button id="dl">Download certificate (PDF) | سرٹیفکیٹ ڈاؤن لوڈ کریں</button>';
-    document.getElementById("dl").onclick = () => {
+    document.getElementById("dl").onclick = async () => {
       const verifyUrl = new URL("index.html", location.href).href + "?id=" + c.id;
-      makeCertificate({...c, verifyUrl}).save("Certificate-" + c.id + ".pdf");
+      try { (await makeCertificate({...c, verifyUrl})).save("Certificate-" + c.id + ".pdf"); }
+      catch(e){ alert("Could not create the PDF. Please try again."); }
     };
   } else {
     let h = '<p class="warn">Certificate not issued yet</p><p class="warn ur" style="font-size:18px">سرٹیفکیٹ ابھی جاری نہیں ہوا</p>' + info;

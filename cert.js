@@ -92,7 +92,7 @@ const DESIGN = {
   // CERTIFICATE ID
   // ----------------------------------------------------------
   id: {
-    x: 1000,
+    x: 780,
     baselineY: 783,
 
     maxWidth: 220,
@@ -498,21 +498,30 @@ async function renderCertificateCanvas(c) {
   );
 
   // ==========================================================
-  // CERTIFICATE ID
-  // ==========================================================
+// CERTIFICATE ID
+// ==========================================================
+//
+// The template already contains:
+//
+// "Certificate ID: |"
+//
+// Therefore we ONLY draw the dynamic ID after that text.
+// ==========================================================
 
-  ctx.font =
-    `700 ${DESIGN.id.fontSize}px "NeuraXBold"`;
+ctx.font =
+  `700 ${DESIGN.id.fontSize}px "NeuraXBold"`;
 
-  ctx.fillStyle =
-    DESIGN.id.color;
+ctx.fillStyle =
+  DESIGN.id.color;
 
-  drawCenteredText(
-    ctx,
-    c.id,
-    DESIGN.id.x,
-    DESIGN.id.baselineY
-  );
+ctx.textAlign = "left";
+ctx.textBaseline = "alphabetic";
+
+ctx.fillText(
+  c.id,
+  DESIGN.id.x,
+  DESIGN.id.baselineY
+);
 
   // ==========================================================
   // QR CODE

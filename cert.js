@@ -1,9 +1,15 @@
 // ============================================================
 // NeuraX Certificate Generator
 // ============================================================
+// IMPORTANT:
+// The certificate is rendered ONCE with the browser Canvas API.
+// The exact same rendered canvas is then placed into the PDF.
+//
+// This makes the PDF visually match the PNG because the browser
+// renders the background, Montserrat text, and QR together.
+//
 // Template: 1536 x 1024 px
-// PDF: 300 x 200 mm
-// Font: Montserrat
+// PDF:      300 x 200 mm
 // ============================================================
 
 const TPL_W = 1536;
@@ -12,140 +18,228 @@ const TPL_H = 1024;
 const PAGE_W = 300;
 const PAGE_H = 200;
 
-const K = PAGE_W / TPL_W;
-
-// ============================================================
-// FILE PATHS
-// ============================================================
-
 const TEMPLATE_PATH = "./template.jpg";
 
-const FONT_PATHS = {
-  regular: "./fonts/Montserrat-Regular.ttf",
+// ============================================================
+// MONTSERRAT FONT FILES
+// ============================================================
+//
+// Put these files inside:
+//
+// fonts/
+//
+// Your GitHub repository should contain:
+//
+// fonts/
+//   Montserrat-LightItalic.ttf
+//   Montserrat-Medium.ttf
+//   Montserrat-Bold.ttf
+//
+// ============================================================
+
+const FONT_FILES = {
   lightItalic: "./fonts/Montserrat-LightItalic.ttf",
   medium: "./fonts/Montserrat-Medium.ttf",
   bold: "./fonts/Montserrat-Bold.ttf"
 };
 
 // ============================================================
-// LOAD CERTIFICATE TEMPLATE
+// CERTIFICATE POSITIONS
+// ============================================================
+//
+// These coordinates are based on your 1536 x 1024 PNG.
+//
+// IMPORTANT:
+// These are PIXEL coordinates, not PDF millimeters.
 // ============================================================
 
-function loadTemplate() {
+const DESIGN = {
+
+  // ----------------------------------------------------------
+  // STUDENT NAME
+  // ----------------------------------------------------------
+  name: {
+    x: 768,
+    baselineY: 400,
+
+    // Maximum width of the name.
+    maxWidth: 760,
+
+    // Starting font size.
+    fontSize: 62,
+
+    // Smallest font size allowed for long names.
+    minFontSize: 34,
+
+    color: "#123A9B"
+  },
+
+  // ----------------------------------------------------------
+  // ISSUE DATE
+  // ----------------------------------------------------------
+  date: {
+    x: 282,
+    baselineY: 857,
+
+    maxWidth: 300,
+
+    fontSize: 20,
+
+    color: "#142B55"
+  },
+
+  // ----------------------------------------------------------
+  // CERTIFICATE ID
+  // ----------------------------------------------------------
+  id: {
+    x: 780,
+    baselineY: 783,
+
+    maxWidth: 220,
+
+    fontSize: 19,
+
+    color: "#123A9B"
+  },
+
+  // ----------------------------------------------------------
+  // QR CODE
+  // ----------------------------------------------------------
+  qr: {
+    x: 1060,
+    y: 826,
+    size: 90
+  }
+};
+
+// ============================================================
+// LOAD IMAGE
+// ============================================================
+
+function loadImage(src) {
+
   return new Promise((resolve, reject) => {
+
     const img = new Image();
 
-    img.onload = () => resolve(img);
+    img.onload = () => {
+      resolve(img);
+    };
 
     img.onerror = () => {
       reject(
         new Error(
-          `Certificate template not found: ${TEMPLATE_PATH}`
+          `Could not load image: ${src}`
         )
       );
     };
 
-    img.src = TEMPLATE_PATH;
+    img.src = src;
   });
 }
 
 // ============================================================
-// ARRAY BUFFER → BASE64
+// LOAD FONT INTO BROWSER
 // ============================================================
 
-function arrayBufferToBase64(buffer) {
-  let binary = "";
+async function loadBrowserFont(
+  family,
+  url,
+  weight,
+  style = "normal"
+) {
 
-  const bytes = new Uint8Array(buffer);
-
-  const chunkSize = 0x8000;
-
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(
-      ...bytes.subarray(i, i + chunkSize)
-    );
-  }
-
-  return btoa(binary);
-}
-
-// ============================================================
-// LOAD TTF FONT INTO JSPDF
-// ============================================================
-
-async function loadFont(doc, file, family, style) {
-
-  const response = await fetch(file, {
-    cache: "no-cache"
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Font could not be loaded (${response.status}): ${file}`
-    );
-  }
-
-  const buffer = await response.arrayBuffer();
-
-  if (!buffer.byteLength) {
-    throw new Error(`Font file is empty: ${file}`);
-  }
-
-  const base64 = arrayBufferToBase64(buffer);
-
-  doc.addFileToVFS(
-    file,
-    base64
-  );
-
-  doc.addFont(
-    file,
+  const font = new FontFace(
     family,
-    style
+    `url("${url}")`,
+    {
+      weight: String(weight),
+      style: style
+    }
   );
+
+  await font.load();
+
+  document.fonts.add(font);
+
+  return font;
 }
 
 // ============================================================
-// LOAD ALL MONTSERRAT FONTS
+// LOAD ALL CERTIFICATE FONTS
 // ============================================================
 
-async function loadMontserratFonts(doc) {
+async function loadCertificateFonts() {
 
-  await loadFont(
-    doc,
-    FONT_PATHS.regular,
-    "Montserrat",
-    "normal"
-  );
+  // Prevent loading the fonts every time a certificate
+  // is generated.
+  if (window.__neuraXFontsLoaded) {
+    return;
+  }
 
-  await loadFont(
-    doc,
-    FONT_PATHS.lightItalic,
-    "MontserratLight",
-    "italic"
-  );
+  await Promise.all([
 
-  await loadFont(
-    doc,
-    FONT_PATHS.medium,
-    "MontserratMedium",
-    "normal"
-  );
+    // Student Name
+    loadBrowserFont(
+      "NeuraXLightItalic",
+      FONT_FILES.lightItalic,
+      300,
+      "italic"
+    ),
 
-  await loadFont(
-    doc,
-    FONT_PATHS.bold,
-    "Montserrat",
-    "bold"
-  );
+    // Issue Date
+    loadBrowserFont(
+      "NeuraXMedium",
+      FONT_FILES.medium,
+      500,
+      "normal"
+    ),
+
+    // Certificate ID
+    loadBrowserFont(
+      "NeuraXBold",
+      FONT_FILES.bold,
+      700,
+      "normal"
+    )
+
+  ]);
+
+  // Wait until browser fonts are ready.
+  await document.fonts.ready;
+
+  // Warm up the fonts.
+  await Promise.all([
+
+    document.fonts.load(
+      `italic 300 ${DESIGN.name.fontSize}px NeuraXLightItalic`
+    ),
+
+    document.fonts.load(
+      `500 ${DESIGN.date.fontSize}px NeuraXMedium`
+    ),
+
+    document.fonts.load(
+      `700 ${DESIGN.id.fontSize}px NeuraXBold`
+    )
+
+  ]);
+
+  window.__neuraXFontsLoaded = true;
 }
 
 // ============================================================
-// DATE FORMATTER
+// FORMAT DATE
 // ============================================================
+//
 // Example:
+//
 // 2026-10-09
-// → October 9, 2026
+//
+// becomes:
+//
+// October 9, 2026
+//
 // ============================================================
 
 function prettyDate(iso) {
@@ -154,12 +248,15 @@ function prettyDate(iso) {
     return "";
   }
 
-  const [y, m, d] = iso
-    .split("-")
-    .map(Number);
+  const [y, m, d] =
+    iso.split("-").map(Number);
 
   return new Date(
-    Date.UTC(y, m - 1, d)
+    Date.UTC(
+      y,
+      m - 1,
+      d
+    )
   ).toLocaleDateString(
     "en-US",
     {
@@ -172,10 +269,97 @@ function prettyDate(iso) {
 }
 
 // ============================================================
-// CREATE CERTIFICATE
+// FIT FONT SIZE
+// ============================================================
+//
+// Automatically reduces the font size when the student name
+// is too long.
 // ============================================================
 
-async function makeCertificate(c) {
+function fitFontSize(
+  ctx,
+  text,
+  makeFont,
+  startSize,
+  minSize,
+  maxWidth
+) {
+
+  let size = startSize;
+
+  while (size > minSize) {
+
+    ctx.font = makeFont(size);
+
+    const width =
+      ctx.measureText(text).width;
+
+    if (width <= maxWidth) {
+      break;
+    }
+
+    size -= 1;
+  }
+
+  ctx.font = makeFont(size);
+
+  return size;
+}
+
+// ============================================================
+// DRAW CENTERED TEXT
+// ============================================================
+
+function drawCenteredText(
+  ctx,
+  text,
+  x,
+  baselineY
+) {
+
+  ctx.textAlign = "center";
+
+  ctx.textBaseline = "alphabetic";
+
+  ctx.fillText(
+    text,
+    x,
+    baselineY
+  );
+}
+
+// ============================================================
+// CREATE QR CODE
+// ============================================================
+
+function createQrDataUrl(url) {
+
+  const qr =
+    qrcode(0, "M");
+
+  qr.addData(url);
+
+  qr.make();
+
+  return qr.createDataURL(10);
+}
+
+// ============================================================
+// RENDER COMPLETE CERTIFICATE
+// ============================================================
+//
+// Everything is rendered onto ONE canvas.
+//
+// Background
+// Student Name
+// Issue Date
+// Certificate ID
+// QR
+//
+// Then this exact canvas is used for the PDF.
+// ============================================================
+
+async function renderCertificateCanvas(c) {
 
   // ----------------------------------------------------------
   // Validate certificate data
@@ -212,201 +396,245 @@ async function makeCertificate(c) {
   }
 
   // ----------------------------------------------------------
-  // Get jsPDF
+  // Load fonts
   // ----------------------------------------------------------
 
-  const { jsPDF } = window.jspdf;
+  await loadCertificateFonts();
 
   // ----------------------------------------------------------
-  // Load template
+  // Load certificate background
   // ----------------------------------------------------------
 
-  const img = await loadTemplate();
+  const template =
+    await loadImage(
+      TEMPLATE_PATH
+    );
 
   // ----------------------------------------------------------
-  // Create PDF
+  // Create exact 1536 × 1024 canvas
   // ----------------------------------------------------------
 
-  const doc = new jsPDF({
-    orientation: "landscape",
-    unit: "mm",
-    format: [PAGE_W, PAGE_H],
-    compress: true
-  });
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
 
-  // ----------------------------------------------------------
-  // Load Montserrat fonts
-  // ----------------------------------------------------------
+  canvas.width =
+    TPL_W;
 
-  await loadMontserratFonts(doc);
+  canvas.height =
+    TPL_H;
 
-  // ----------------------------------------------------------
-  // Background certificate template
-  // ----------------------------------------------------------
+  const ctx =
+    canvas.getContext("2d");
 
-  doc.addImage(
-    img,
-    "JPEG",
+  // High quality rendering.
+  ctx.imageSmoothingEnabled = true;
+
+  ctx.imageSmoothingQuality =
+    "high";
+
+  // ==========================================================
+  // BACKGROUND
+  // ==========================================================
+
+  ctx.drawImage(
+    template,
     0,
     0,
-    PAGE_W,
-    PAGE_H
+    TPL_W,
+    TPL_H
   );
 
   // ==========================================================
   // STUDENT NAME
   // ==========================================================
-  //
-  // Font:
-  // Montserrat Light Italic
-  //
-  // Size:
-  // 46 pt
-  //
-  // Color:
-  // #123A9B
-  //
-  // Automatically shrinks for long names.
-  // ==========================================================
 
-  doc.setTextColor(
-    18,
-    58,
-    155
-  );
+  const nameFont =
+    size =>
+      `italic 300 ${size}px "NeuraXLightItalic"`;
 
-  doc.setFont(
-    "MontserratLight",
-    "italic"
-  );
-
-  let nameSize = 46;
-
-  doc.setFontSize(
-    nameSize
-  );
-
-  while (
-    doc.getTextWidth(c.name) > 150 &&
-    nameSize > 24
-  ) {
-
-    nameSize -= 2;
-
-    doc.setFontSize(
-      nameSize
+  const nameSize =
+    fitFontSize(
+      ctx,
+      c.name,
+      nameFont,
+      DESIGN.name.fontSize,
+      DESIGN.name.minFontSize,
+      DESIGN.name.maxWidth
     );
-  }
 
-  doc.text(
+  ctx.font =
+    nameFont(nameSize);
+
+  ctx.fillStyle =
+    DESIGN.name.color;
+
+  drawCenteredText(
+    ctx,
     c.name,
-    768 * K,
-    400 * K,
-    {
-      align: "center"
-    }
+    DESIGN.name.x,
+    DESIGN.name.baselineY
   );
 
   // ==========================================================
   // ISSUE DATE
   // ==========================================================
-  //
-  // Font:
-  // Montserrat Medium
-  //
-  // Size:
-  // 15 pt
-  //
-  // Color:
-  // #142B55
-  // ==========================================================
 
-  doc.setTextColor(
-    20,
-    43,
-    85
-  );
+  const date =
+    prettyDate(c.date);
 
-  doc.setFont(
-    "MontserratMedium",
-    "normal"
-  );
+  ctx.font =
+    `500 ${DESIGN.date.fontSize}px "NeuraXMedium"`;
 
-  doc.setFontSize(
-    15
-  );
+  ctx.fillStyle =
+    DESIGN.date.color;
 
-  doc.text(
-    prettyDate(c.date),
-    282 * K,
-    857 * K,
-    {
-      align: "center"
-    }
+  drawCenteredText(
+    ctx,
+    date,
+    DESIGN.date.x,
+    DESIGN.date.baselineY
   );
 
   // ==========================================================
   // CERTIFICATE ID
   // ==========================================================
-  //
-  // Font:
-  // Montserrat Bold
-  //
-  // Size:
-  // 14 pt
-  //
-  // Color:
-  // #123A9B
-  // ==========================================================
 
-  doc.setTextColor(
-    18,
-    58,
-    155
-  );
+  ctx.font =
+    `700 ${DESIGN.id.fontSize}px "NeuraXBold"`;
 
-  doc.setFont(
-    "Montserrat",
-    "bold"
-  );
+  ctx.fillStyle =
+    DESIGN.id.color;
 
-  doc.setFontSize(
-    14
-  );
-
-  doc.text(
+  drawCenteredText(
+    ctx,
     c.id,
-    780 * K,
-    783 * K
+    DESIGN.id.x,
+    DESIGN.id.baselineY
   );
 
   // ==========================================================
   // QR CODE
   // ==========================================================
 
-  const qr = qrcode(
-    0,
-    "M"
+  const qrDataUrl =
+    createQrDataUrl(
+      c.verifyUrl
+    );
+
+  const qrImage =
+    await loadImage(
+      qrDataUrl
+    );
+
+  ctx.drawImage(
+    qrImage,
+    DESIGN.qr.x,
+    DESIGN.qr.y,
+    DESIGN.qr.size,
+    DESIGN.qr.size
   );
 
-  qr.addData(
-    c.verifyUrl
-  );
+  // ----------------------------------------------------------
+  // Return final certificate canvas
+  // ----------------------------------------------------------
 
-  qr.make();
+  return canvas;
+}
+
+// ============================================================
+// CREATE PDF
+// ============================================================
+//
+// IMPORTANT:
+//
+// The PDF does NOT render Student Name, Date or ID itself.
+//
+// Instead, the already-rendered canvas is inserted into the PDF.
+//
+// Therefore:
+//
+//        PNG appearance
+//             =
+//        Canvas appearance
+//             =
+//        PDF appearance
+//
+// ============================================================
+
+async function makeCertificate(c) {
+
+  const { jsPDF } =
+    window.jspdf;
+
+  // Render the complete certificate once.
+  const canvas =
+    await renderCertificateCanvas(c);
+
+  // ----------------------------------------------------------
+  // Create PDF
+  // ----------------------------------------------------------
+
+  const doc =
+    new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: [
+        PAGE_W,
+        PAGE_H
+      ],
+      compress: true
+    });
+
+  // ----------------------------------------------------------
+  // Put exact canvas into PDF
+  // ----------------------------------------------------------
 
   doc.addImage(
-    qr.createDataURL(10),
+    canvas,
     "PNG",
-    1060 * K,
-    826 * K,
-    90 * K,
-    90 * K
+    0,
+    0,
+    PAGE_W,
+    PAGE_H,
+    undefined,
+    "FAST"
   );
 
-  // ==========================================================
-  // RETURN PDF
-  // ==========================================================
-
   return doc;
+}
+
+// ============================================================
+// OPTIONAL PNG DOWNLOAD
+// ============================================================
+//
+// You can use this to compare the PNG and PDF.
+//
+// Example:
+//
+// const canvas = await renderCertificateCanvas(c);
+// downloadCertificatePNG(c);
+//
+// ============================================================
+
+async function downloadCertificatePNG(c) {
+
+  const canvas =
+    await renderCertificateCanvas(c);
+
+  const link =
+    document.createElement(
+      "a"
+    );
+
+  link.download =
+    `Certificate-${c.id}.png`;
+
+  link.href =
+    canvas.toDataURL(
+      "image/png"
+    );
+
+  link.click();
 }

@@ -88,19 +88,31 @@ const DESIGN = {
     color: "#142B55"
   },
 
-  // ----------------------------------------------------------
-  // CERTIFICATE ID
-  // ----------------------------------------------------------
-  id: {
-    x: 780,
-    baselineY: 783,
+ // ==========================================================
+// CERTIFICATE ID
+// ==========================================================
+//
+// The template already contains:
+//
+// "Certificate ID: |"
+//
+// Therefore we ONLY draw the dynamic ID after that text.
+// ==========================================================
 
-    maxWidth: 220,
+ctx.font =
+  `700 ${DESIGN.id.fontSize}px "NeuraXBold"`;
 
-    fontSize: 19,
+ctx.fillStyle =
+  DESIGN.id.color;
 
-    color: "#123A9B"
-  },
+ctx.textAlign = "left";
+ctx.textBaseline = "alphabetic";
+
+ctx.fillText(
+  c.id,
+  DESIGN.id.x,
+  DESIGN.id.baselineY
+);
 
   // ----------------------------------------------------------
   // QR CODE

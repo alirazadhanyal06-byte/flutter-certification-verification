@@ -92,7 +92,7 @@ const DESIGN = {
   // CERTIFICATE ID
   // ----------------------------------------------------------
   id: {
-    x: 780,
+    x: 850,
     baselineY: 783,
 
     maxWidth: 220,

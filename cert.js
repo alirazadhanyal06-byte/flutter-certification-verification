@@ -1,7 +1,9 @@
 // ============================================================
 // NeuraX Certificate Generator
+// ============================================================
 // Template: 1536 x 1024 px
 // PDF: 300 x 200 mm
+// Font: Montserrat
 // ============================================================
 
 const TPL_W = 1536;
@@ -12,30 +14,48 @@ const PAGE_H = 200;
 
 const K = PAGE_W / TPL_W;
 
+// ============================================================
+// FILE PATHS
+// ============================================================
 
-// ------------------------------------------------------------
-// Load certificate template
-// ------------------------------------------------------------
+const TEMPLATE_PATH = "./template.jpg";
+
+const FONT_PATHS = {
+  regular: "./fonts/Montserrat-Regular.ttf",
+  lightItalic: "./fonts/Montserrat-LightItalic.ttf",
+  medium: "./fonts/Montserrat-Medium.ttf",
+  bold: "./fonts/Montserrat-Bold.ttf"
+};
+
+// ============================================================
+// LOAD CERTIFICATE TEMPLATE
+// ============================================================
 
 function loadTemplate() {
-  return new Promise((res, rej) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
 
-    img.onload = () => res(img);
-    img.onerror = () => rej(new Error("template.jpg not found"));
+    img.onload = () => resolve(img);
 
-    img.src = "template.jpg";
+    img.onerror = () => {
+      reject(
+        new Error(
+          `Certificate template not found: ${TEMPLATE_PATH}`
+        )
+      );
+    };
+
+    img.src = TEMPLATE_PATH;
   });
 }
 
-
-// ------------------------------------------------------------
-// Convert ArrayBuffer → Base64
-// Required by jsPDF's addFileToVFS()
-// ------------------------------------------------------------
+// ============================================================
+// ARRAY BUFFER → BASE64
+// ============================================================
 
 function arrayBufferToBase64(buffer) {
   let binary = "";
+
   const bytes = new Uint8Array(buffer);
 
   const chunkSize = 0x8000;
@@ -49,37 +69,94 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
-
-// ------------------------------------------------------------
-// Load a TTF font into jsPDF
-// ------------------------------------------------------------
+// ============================================================
+// LOAD TTF FONT INTO JSPDF
+// ============================================================
 
 async function loadFont(doc, file, family, style) {
 
-  const response = await fetch(file);
+  const response = await fetch(file, {
+    cache: "no-cache"
+  });
 
   if (!response.ok) {
-    throw new Error(`Font not found: ${file}`);
+    throw new Error(
+      `Font could not be loaded (${response.status}): ${file}`
+    );
   }
 
   const buffer = await response.arrayBuffer();
 
+  if (!buffer.byteLength) {
+    throw new Error(`Font file is empty: ${file}`);
+  }
+
   const base64 = arrayBufferToBase64(buffer);
 
-  doc.addFileToVFS(file, base64);
+  doc.addFileToVFS(
+    file,
+    base64
+  );
 
-  doc.addFont(file, family, style);
+  doc.addFont(
+    file,
+    family,
+    style
+  );
 }
 
+// ============================================================
+// LOAD ALL MONTSERRAT FONTS
+// ============================================================
 
-// ------------------------------------------------------------
-// Date formatting
-// Example: 2026-10-09 → October 9, 2026
-// ------------------------------------------------------------
+async function loadMontserratFonts(doc) {
+
+  await loadFont(
+    doc,
+    FONT_PATHS.regular,
+    "Montserrat",
+    "normal"
+  );
+
+  await loadFont(
+    doc,
+    FONT_PATHS.lightItalic,
+    "MontserratLight",
+    "italic"
+  );
+
+  await loadFont(
+    doc,
+    FONT_PATHS.medium,
+    "MontserratMedium",
+    "normal"
+  );
+
+  await loadFont(
+    doc,
+    FONT_PATHS.bold,
+    "Montserrat",
+    "bold"
+  );
+}
+
+// ============================================================
+// DATE FORMATTER
+// ============================================================
+// Example:
+// 2026-10-09
+// → October 9, 2026
+// ============================================================
 
 function prettyDate(iso) {
 
-  const [y, m, d] = iso.split("-").map(Number);
+  if (!iso) {
+    return "";
+  }
+
+  const [y, m, d] = iso
+    .split("-")
+    .map(Number);
 
   return new Date(
     Date.UTC(y, m - 1, d)
@@ -94,59 +171,77 @@ function prettyDate(iso) {
   );
 }
 
-
 // ============================================================
 // CREATE CERTIFICATE
 // ============================================================
 
 async function makeCertificate(c) {
 
+  // ----------------------------------------------------------
+  // Validate certificate data
+  // ----------------------------------------------------------
+
+  if (!c) {
+    throw new Error(
+      "Certificate data is missing."
+    );
+  }
+
+  if (!c.name) {
+    throw new Error(
+      "Student name is required."
+    );
+  }
+
+  if (!c.date) {
+    throw new Error(
+      "Certificate issue date is required."
+    );
+  }
+
+  if (!c.id) {
+    throw new Error(
+      "Certificate ID is required."
+    );
+  }
+
+  if (!c.verifyUrl) {
+    throw new Error(
+      "Certificate verification URL is required."
+    );
+  }
+
+  // ----------------------------------------------------------
+  // Get jsPDF
+  // ----------------------------------------------------------
+
   const { jsPDF } = window.jspdf;
 
+  // ----------------------------------------------------------
+  // Load template
+  // ----------------------------------------------------------
+
   const img = await loadTemplate();
+
+  // ----------------------------------------------------------
+  // Create PDF
+  // ----------------------------------------------------------
 
   const doc = new jsPDF({
     orientation: "landscape",
     unit: "mm",
-    format: [PAGE_W, PAGE_H]
+    format: [PAGE_W, PAGE_H],
+    compress: true
   });
-
 
   // ----------------------------------------------------------
   // Load Montserrat fonts
   // ----------------------------------------------------------
 
-  await loadFont(
-    doc,
-    "Montserrat-Regular.ttf",
-    "Montserrat",
-    "normal"
-  );
-
-  await loadFont(
-    doc,
-    "Montserrat-LightItalic.ttf",
-    "MontserratLight",
-    "italic"
-  );
-
-  await loadFont(
-    doc,
-    "Montserrat-Medium.ttf",
-    "MontserratMedium",
-    "normal"
-  );
-
-  await loadFont(
-    doc,
-    "Montserrat-Bold.ttf",
-    "Montserrat",
-    "bold"
-  );
-
+  await loadMontserratFonts(doc);
 
   // ----------------------------------------------------------
-  // Background template
+  // Background certificate template
   // ----------------------------------------------------------
 
   doc.addImage(
@@ -158,38 +253,51 @@ async function makeCertificate(c) {
     PAGE_H
   );
 
-
   // ==========================================================
   // STUDENT NAME
   // ==========================================================
-
-  // NeuraX blue
-  doc.setTextColor(18, 58, 155);
-
+  //
+  // Font:
   // Montserrat Light Italic
+  //
+  // Size:
+  // 46 pt
+  //
+  // Color:
+  // #123A9B
+  //
+  // Automatically shrinks for long names.
+  // ==========================================================
+
+  doc.setTextColor(
+    18,
+    58,
+    155
+  );
+
   doc.setFont(
     "MontserratLight",
     "italic"
   );
 
-  let size = 46;
+  let nameSize = 46;
 
-  doc.setFontSize(size);
+  doc.setFontSize(
+    nameSize
+  );
 
-
-  // Automatically reduce size for long names
   while (
     doc.getTextWidth(c.name) > 150 &&
-    size > 24
+    nameSize > 24
   ) {
 
-    size -= 2;
+    nameSize -= 2;
 
-    doc.setFontSize(size);
+    doc.setFontSize(
+      nameSize
+    );
   }
 
-
-  // Centered
   doc.text(
     c.name,
     768 * K,
@@ -199,9 +307,18 @@ async function makeCertificate(c) {
     }
   );
 
-
   // ==========================================================
   // ISSUE DATE
+  // ==========================================================
+  //
+  // Font:
+  // Montserrat Medium
+  //
+  // Size:
+  // 15 pt
+  //
+  // Color:
+  // #142B55
   // ==========================================================
 
   doc.setTextColor(
@@ -215,7 +332,9 @@ async function makeCertificate(c) {
     "normal"
   );
 
-  doc.setFontSize(15);
+  doc.setFontSize(
+    15
+  );
 
   doc.text(
     prettyDate(c.date),
@@ -226,9 +345,18 @@ async function makeCertificate(c) {
     }
   );
 
-
   // ==========================================================
   // CERTIFICATE ID
+  // ==========================================================
+  //
+  // Font:
+  // Montserrat Bold
+  //
+  // Size:
+  // 14 pt
+  //
+  // Color:
+  // #123A9B
   // ==========================================================
 
   doc.setTextColor(
@@ -242,7 +370,9 @@ async function makeCertificate(c) {
     "bold"
   );
 
-  doc.setFontSize(14);
+  doc.setFontSize(
+    14
+  );
 
   doc.text(
     c.id,
@@ -250,14 +380,18 @@ async function makeCertificate(c) {
     783 * K
   );
 
-
   // ==========================================================
   // QR CODE
   // ==========================================================
 
-  const qr = qrcode(0, "M");
+  const qr = qrcode(
+    0,
+    "M"
+  );
 
-  qr.addData(c.verifyUrl);
+  qr.addData(
+    c.verifyUrl
+  );
 
   qr.make();
 
@@ -270,6 +404,9 @@ async function makeCertificate(c) {
     90 * K
   );
 
+  // ==========================================================
+  // RETURN PDF
+  // ==========================================================
 
   return doc;
 }

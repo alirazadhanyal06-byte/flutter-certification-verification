@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Records (Teacher)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="cert.js"></script>
+<style>
+ body{font-family:system-ui,sans-serif;background:#eef3fb;display:flex;justify-content:center;padding:24px;margin:0}
+ .card{background:#fff;max-width:580px;width:100%;border-radius:14px;padding:26px;box-shadow:0 4px 18px #0002}
+ label.t{display:block;margin-top:12px;font-weight:600}
+ input[type=text],input[type=date]{width:100%;padding:10px;border:1px solid #bbb;border-radius:8px;font-size:15px;box-sizing:border-box}
+ .chk{display:block;margin-top:8px;font-size:15px}
+ button{margin-top:16px;padding:11px 18px;border:0;border-radius:8px;background:#0d47a1;color:#fff;font-size:15px;cursor:pointer}
+ textarea{width:100%;height:170px;margin-top:6px;font-family:monospace;box-sizing:border-box}
+ .note{background:#e8f1ff;padding:10px;border-radius:8px;font-size:14px}
+</style></head><body>
+<div class="card">
+ <h2 style="color:#0d47a1;margin-top:0">Student Record Generator</h2>
+ <p class="note">Create one file per student. Update the three checkboxes later as the student completes each step, then upload the file again.</p>
+ <label class="t">Student name</label><input type="text" id="name">
+ <label class="t">Course</label><input type="text" id="course" value="Flutter Development Course">
+ <label class="t">Completion date</label><input type="date" id="date">
+ <label class="chk"><input type="checkbox" id="testPassed"> Final test passed</label>
+ <label class="chk"><input type="checkbox" id="projectSubmitted"> Final project submitted</label>
+ <label class="chk"><input type="checkbox" id="feePaid"> Fee paid</label>
+ <button onclick="gen()">Generate record</button>
+ <div id="out" style="display:none">
+  <p><b>Step 1:</b> Save this as <code id="fname"></code> inside the <code>data</code> folder on GitHub:</p>
+  <textarea id="json" readonly></textarea>
+  <p><b>Step 2:</b> Give the student their link:</p>
+  <input type="text" id="link" readonly>
+  <p id="pdfnote"><b>Optional:</b> preview the PDF</p>
+  <button id="pdf">Download PDF</button>
+ </div>
+</div>
+<script>
+document.getElementById("date").valueAsDate = new Date();
+function newId(){
+  const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789", r=crypto.getRandomValues(new Uint8Array(8));
+  const s=[...r].map(b=>a[b%a.length]).join("");
+  return "FLT-"+s.slice(0,4)+"-"+s.slice(4);
+}
+function gen(){
+  const g=i=>document.getElementById(i);
+  const name=g("name").value.trim(), course=g("course").value.trim(), date=g("date").value;
+  if(!name||!course||!date) return alert("Please fill in all fields.");
+  const c={id:newId(),name,course,date,testPassed:g("testPassed").checked,projectSubmitted:g("projectSubmitted").checked,feePaid:g("feePaid").checked};
+  g("json").value=JSON.stringify(c,null,2);
+  g("fname").textContent=c.id+".json";
+  const verifyUrl=new URL("index.html",location.href).href+"?id="+c.id;
+  g("link").value=verifyUrl;
+  g("out").style.display="block";
+  g("pdf").onclick=()=>makeCertificate({...c,verifyUrl}).save("Certificate-"+c.id+".pdf");
+}
+</script></body></html>

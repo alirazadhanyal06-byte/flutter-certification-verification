@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Certificate Verification | سرٹیفکیٹ کی تصدیق</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="cert.js"></script>
+<style>
+ body{font-family:system-ui,sans-serif;background:#eef3fb;margin:0;display:flex;justify-content:center;padding:24px}
+ .card{background:#fff;max-width:520px;width:100%;border-radius:14px;padding:28px;box-shadow:0 4px 18px #0002;text-align:center}
+ h1{color:#0d47a1;font-size:21px;margin:0 0 4px}
+ .ur{font-family:'Noto Nastaliq Urdu',serif;direction:rtl;line-height:2.1}
+ input{padding:11px;width:60%;border:1px solid #bbb;border-radius:8px;font-size:15px}
+ button{padding:11px 18px;border:0;border-radius:8px;background:#0d47a1;color:#fff;font-size:15px;cursor:pointer}
+ .ok{color:#1b7f3b;font-size:20px;font-weight:700}.bad{color:#c62828;font-size:20px;font-weight:700}.warn{color:#b26a00;font-size:20px;font-weight:700}
+ table{margin:14px auto;text-align:left}td{padding:4px 10px}
+ .box{background:#fff4e5;border:1px solid #f0c27a;border-radius:10px;padding:12px;margin:10px 0;text-align:left}
+ .box p{margin:4px 0}.box .ur{text-align:right}
+ .check{text-align:left;margin:12px auto;max-width:360px}.check div{padding:3px 0}
+ hr{border:0;border-top:1px solid #e3e8f0;margin:18px 0}
+</style></head><body>
+<div class="card">
+ <h1>Certificate Verification</h1>
+ <div class="ur" style="color:#0d47a1;font-size:17px">سرٹیفکیٹ کی تصدیق</div><br>
+ <div><input id="idin" placeholder="Certificate ID | سرٹیفکیٹ آئی ڈی"> <button onclick="go()">Verify | تصدیق</button></div>
+ <div id="result"></div>
+</div>
+<script>
+const params = new URLSearchParams(location.search);
+const id = (params.get("id") || "").trim().toUpperCase();
+const esc = s => String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+function go(){ const v=document.getElementById("idin").value.trim(); if(v) location.search="?id="+encodeURIComponent(v); }
+
+const MSG = {
+ project:{ok:["Final project submitted","فائنل پراجیکٹ جمع ہو چکا ہے"],
+  bad:["You have not submitted your final project. Please submit it to continue.","آپ نے ابھی تک اپنا فائنل پراجیکٹ جمع نہیں کروایا۔ براہِ کرم آگے بڑھنے کے لیے فائنل پراجیکٹ جمع کروائیں۔"]},
+ fee:{ok:["Fee paid","فیس ادا ہو چکی ہے"],
+  bad:["Your fee is pending. Please pay the fee to generate your certificate.","آپ کی فیس ابھی ادا نہیں ہوئی۔ سرٹیفکیٹ حاصل کرنے کے لیے براہِ کرم فیس ادا کریں۔"]},
+ test:{ok:["Final test passed","فائنل ٹیسٹ پاس کر لیا گیا ہے"],
+  bad:["You have not passed the final test yet. Please contact your instructor.","آپ نے ابھی تک فائنل ٹیسٹ پاس نہیں کیا۔ براہِ کرم اپنے استاد سے رابطہ کریں۔"]}
+};
+
+async function check(){
+  const out = document.getElementById("result");
+  if(!id) return;
+  document.getElementById("idin").value = id;
+  out.innerHTML = "<hr>";
+  if(!/^[A-Z0-9-]{4,30}$/.test(id)) return invalid(out);
+  let c;
+  try{
+    const r = await fetch("data/"+id+".json?t="+Date.now());
+    if(!r.ok) return invalid(out);
+    c = await r.json();
+  }catch(e){ return invalid(out); }
+
+  const items = [["project",c.projectSubmitted],["fee",c.feePaid],["test",c.testPassed]];
+  const pending = items.filter(i=>!i[1]);
+  const info = '<table><tr><td><b>Name | نام</b></td><td>'+esc(c.name)+'</td></tr>'
+    +'<tr><td><b>Course | کورس</b></td><td>'+esc(c.course)+'</td></tr>'
+    +'<tr><td><b>ID | آئی ڈی</b></td><td>'+esc(c.id)+'</td></tr></table>';
+
+  if(pending.length===0){
+    out.innerHTML += '<p class="ok">✓ Valid certificate</p><p class="ok ur" style="font-size:18px">درست سرٹیفکیٹ</p>'
+      + info + '<p>Date | تاریخ: '+esc(c.date)+'</p>'
+      + '<button id="dl">Download certificate (PDF) | سرٹیفکیٹ ڈاؤن لوڈ کریں</button>';
+    document.getElementById("dl").onclick = () => {
+      const verifyUrl = new URL("index.html", location.href).href + "?id=" + c.id;
+      makeCertificate({...c, verifyUrl}).save("Certificate-" + c.id + ".pdf");
+    };
+  } else {
+    let h = '<p class="warn">Certificate not issued yet</p><p class="warn ur" style="font-size:18px">سرٹیفکیٹ ابھی جاری نہیں ہوا</p>' + info;
+    h += '<div class="check">' + items.map(([k,ok]) =>
+      '<div>'+(ok?'✅':'❌')+' '+MSG[k].ok[0]+(ok?'':' — <b>pending</b>')+'</div>').join('') + '</div>';
+    pending.forEach(([k])=>{ h += '<div class="box"><p>'+MSG[k].bad[0]+'</p><p class="ur">'+MSG[k].bad[1]+'</p></div>'; });
+    out.innerHTML += h;
+  }
+}
+function invalid(out){
+  out.innerHTML += '<p class="bad">✗ Invalid certificate</p><p>No certificate was found with this ID.</p>'
+   + '<p class="ur">غلط سرٹیفکیٹ — اس آئی ڈی کا کوئی سرٹیفکیٹ نہیں ملا۔</p>';
+}
+document.getElementById("idin").addEventListener("keydown",e=>{if(e.key==="Enter")go();});
+check();
+</script></body></html>

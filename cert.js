@@ -105,12 +105,14 @@ ctx.font =
 ctx.fillStyle =
   DESIGN.id.color;
 
-ctx.textAlign = "right";
+ctx.textAlign = "left";
 ctx.textBaseline = "alphabetic";
+
+const offsetX = 110;
 
 ctx.fillText(
   c.id,
-  DESIGN.id.x,
+  DESIGN.id.x + offsetX,
   DESIGN.id.baselineY
 );
 

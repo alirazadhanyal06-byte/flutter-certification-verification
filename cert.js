@@ -105,7 +105,7 @@ ctx.font =
 ctx.fillStyle =
   DESIGN.id.color;
 
-ctx.textAlign = "left";
+ctx.textAlign = "center";
 ctx.textBaseline = "alphabetic";
 
 ctx.fillText(
